@@ -13,7 +13,7 @@ var (
 func (user *User) Get() *errors.RestErr {
 	result := usersDb[user.Id]
 
-	if result != nil {
+	if result == nil {
 		return errors.NewNotFoundError(fmt.Sprintf("user %d not found", user.Id))
 	}
 
