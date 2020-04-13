@@ -2,49 +2,88 @@ package users
 
 import (
 	"fmt"
-	"time"
+	"strings"
 
+	"github.com/go-sql-driver/mysql"
 	"github.com/rdelvallej32/bookstore_users-api/datasources/mysql/users_db"
+	"github.com/rdelvallej32/bookstore_users-api/utils/date_util"
 	"github.com/rdelvallej32/bookstore_users-api/utils/errors"
 )
 
-var (
-	usersDb = make(map[int64]*User)
+const (
+	errorNoRows     = "no rows in result set"
+	queryInsertUser = "INSERT INTO users(firstName, lastName, email, dateCreated) VALUES(?, ?, ?, ?);"
+	queryGetUser    = "SELECT id, firstName, lastName, email, dateCreated FROM users WHERE id=?"
 )
 
 func (user *User) Get() *errors.RestErr {
-	if err := users_db.Client.Ping(); err != nil {
-		panic(err)
+	query, err := users_db.Client.Prepare(queryGetUser)
+
+	if err != nil {
+		return errors.NewInternalServerError(err.Error())
 	}
 
-	result := usersDb[user.Id]
+	defer query.Close()
 
-	if result == nil {
-		return errors.NewNotFoundError(fmt.Sprintf("user %d not found", user.Id))
+	result := query.QueryRow(user.Id)
+
+	if err := result.Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.DateCreated); err != nil {
+		if strings.Contains(err.Error(), errorNoRows) {
+			return errors.NewNotFoundError(fmt.Sprintf("user %d not found", user.Id))
+		}
+
+		return errors.NewInternalServerError(
+			fmt.Sprintf("error when trying to get user %d: %s", user.Id, err.Error()),
+		)
 	}
 
-	user.Id = result.Id
-	user.FirstName = result.FirstName
-	user.LastName = result.LastName
-	user.Email = result.Email
-	user.DateCreated = result.DateCreated
+	// user.Id = result.Id
+	// user.FirstName = result.FirstName
+	// user.LastName = result.LastName
+	// user.Email = result.Email
+	// user.DateCreated = result.DateCreated
 	return nil
 }
 
 func (user *User) Save() *errors.RestErr {
-	current := usersDb[user.Id]
-	if current != nil {
+	query, err := users_db.Client.Prepare(queryInsertUser)
 
-		if current.Email == user.Email {
-			return errors.NewBadRequestError(fmt.Sprintf("email %s already registerd", user.Email))
-		}
-
-		return errors.NewBadRequestError(fmt.Sprintf("user %d already exists", user.Id))
+	if err != nil {
+		fmt.Println("ERROR With Statement")
+		return errors.NewInternalServerError(err.Error())
 	}
 
-	now := time.Now().UTC()
-	user.DateCreated = now.Format("2006-01-02T15:04:05Z")
+	defer query.Close()
 
-	usersDb[user.Id] = user
+	user.DateCreated = date_util.GetNowString()
+
+	insertResult, saveErr := query.Exec(user.FirstName, user.LastName, user.Email, user.DateCreated)
+
+	if saveErr != nil {
+		sqlErr, ok := saveErr.(*mysql.MySQLError)
+
+		if !ok {
+			return errors.NewInternalServerError(
+				fmt.Sprintf("error when trying to save user: %s", saveErr.Error()),
+			)
+		}
+		switch sqlErr.Number {
+		case 1062:
+			return errors.NewBadRequestError(fmt.Sprintf("email %s already exists", user.Email))
+		}
+
+		return errors.NewInternalServerError(fmt.Sprintf("error when trying to save user: %s", saveErr.Error()))
+	}
+
+	userId, err := insertResult.LastInsertId()
+
+	if err != nil {
+		fmt.Println("ERROR with last insert id")
+		return errors.NewInternalServerError(
+			fmt.Sprintf("error when trying to save user: %s", err.Error()),
+		)
+	}
+
+	user.Id = userId
 	return nil
 }

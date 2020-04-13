@@ -3,7 +3,6 @@ package users
 import (
 	"strings"
 
-	"github.com/rdelvallej32/bookstore_users-api/utils/date_util"
 	"github.com/rdelvallej32/bookstore_users-api/utils/errors"
 )
 
@@ -22,6 +21,5 @@ func (user *User) Validate() *errors.RestErr {
 		return errors.NewBadRequestError("invalid email address")
 	}
 
-	user.DateCreated = date_util.GetNowString()
 	return nil
 }
