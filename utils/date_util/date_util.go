@@ -3,7 +3,8 @@ package date_util
 import "time"
 
 const (
-	apiDateLayout = "2006-01-02T15:04:05Z"
+	apiDateFormat = "2006-01-02T15:04:05Z"
+	apiDBFormat   = "2006-01-02T15:04:05"
 )
 
 func GetNow() time.Time {
@@ -11,5 +12,9 @@ func GetNow() time.Time {
 }
 
 func GetNowString() string {
-	return GetNow().Format(apiDateLayout)
+	return GetNow().Format(apiDateFormat)
+}
+
+func GetNowDBFormat() string {
+	return GetNow().Format(apiDBFormat)
 }
