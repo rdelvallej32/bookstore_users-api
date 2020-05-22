@@ -12,7 +12,18 @@ import (
 	"github.com/rdelvallej32/bookstore_users-api/utils/errors"
 )
 
-func CreateUser(c *gin.Context) {
+func getUserId(userIdParam string) (int64, *errors.RestErr) {
+	userId, userErr := strconv.ParseInt(userIdParam, 10, 64)
+
+	if userErr != nil {
+		err := errors.NewBadRequestError("invalid user id")
+		return 0, err
+	}
+
+	return userId, nil
+}
+
+func Create(c *gin.Context) {
 	var user users.User
 	bytes, err := ioutil.ReadAll(c.Request.Body)
 
@@ -38,12 +49,11 @@ func CreateUser(c *gin.Context) {
 	c.JSON(http.StatusCreated, result)
 }
 
-func GetUser(c *gin.Context) {
-	userId, userErr := strconv.ParseInt(c.Param("user_id"), 10, 64)
+func Get(c *gin.Context) {
+	userId, userErr := getUserId(c.Param("user_id"))
 
 	if userErr != nil {
-		err := errors.NewBadRequestError("invalid user id")
-		c.JSON(err.Status, err)
+		c.JSON(userErr.Status, userErr)
 		return
 	}
 
@@ -57,13 +67,12 @@ func GetUser(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
-func UpdateUser(c *gin.Context) {
+func Update(c *gin.Context) {
 	var user users.User
-	userId, userErr := strconv.ParseInt(c.Param("user_id"), 10, 64)
+	userId, userErr := getUserId(c.Param("user_id"))
 
 	if userErr != nil {
-		err := errors.NewBadRequestError("invalid user id")
-		c.JSON(err.Status, err)
+		c.JSON(userErr.Status, userErr)
 		return
 	}
 
@@ -92,6 +101,22 @@ func UpdateUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, result)
+}
+
+func Delete(c *gin.Context) {
+	userId, userErr := getUserId(c.Param("user_id"))
+
+	if userErr != nil {
+		c.JSON(userErr.Status, userErr)
+		return
+	}
+
+	if err := services.DeleteUser(userId); err != nil {
+		c.JSON(err.Status, err)
+	}
+
+	c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
+
 }
 
 func SearchUser(c *gin.Context) {
