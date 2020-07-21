@@ -2,6 +2,7 @@ package services
 
 import (
 	"github.com/rdelvallej32/bookstore_users-api/domain/users"
+	crypto_utils "github.com/rdelvallej32/bookstore_users-api/utils/crypto_util"
 	"github.com/rdelvallej32/bookstore_users-api/utils/date_util"
 	"github.com/rdelvallej32/bookstore_users-api/utils/errors"
 )
@@ -13,6 +14,7 @@ func CreateUser(user users.User) (*users.User, *errors.RestErr) {
 
 	user.Status = users.StatusActive
 	user.DateCreated = date_util.GetNowDBFormat()
+	user.Password = crypto_utils.GetMd5(user.Password)
 
 	if err := user.Save(); err != nil {
 		return nil, err
@@ -71,7 +73,7 @@ func DeleteUser(userId int64) *errors.RestErr {
 	return user.Delete()
 }
 
-func Search(status string) ([]users.User, *errors.RestErr) {
+func Search(status string) (users.Users, *errors.RestErr) {
 	dao := &users.User{}
 
 	users, err := dao.FindByStatus(status)
